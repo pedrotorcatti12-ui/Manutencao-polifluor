@@ -5,10 +5,7 @@ import { AppProvider } from './contexts/AppContext';
 import { DataProvider } from './contexts/DataContext';
 import { ToastProvider } from './contexts/ToastContext';
 
-const rootElement = document.getElementById('root');
-if (!rootElement) throw new Error("Root element not found");
-
-const root = ReactDOM.createRoot(rootElement);
+const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 root.render(
   <React.StrictMode>
     <ToastProvider>
