@@ -78,7 +78,9 @@ export const Sidebar: React.FC<{ onCloseMobile?: () => void }> = ({ onCloseMobil
 
         <div className="space-y-1">
             <h3 className="px-3 text-xs font-bold uppercase text-gray-400 tracking-wider mb-2 mt-4">Sistema</h3>
+            <NavItem icon={<DocumentTextIcon />} label="Impressão em Lote" page="documentation" onClick={() => onCloseMobile?.()} />
             <NavItem icon={<ShieldCheckIcon />} label="Qualidade IATF" page="quality" onClick={() => onCloseMobile?.()} />
+            <NavItem icon={<InfoIcon />} label="Informações & ROI" page="information" onClick={() => onCloseMobile?.()} />
             <NavItem icon={<SettingsIcon />} label="Configurações" page="settings" onClick={() => onCloseMobile?.()} />
         </div>
       </nav>
