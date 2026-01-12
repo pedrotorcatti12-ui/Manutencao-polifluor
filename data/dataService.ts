@@ -1,4 +1,3 @@
-
 import {
   Equipment,
   MaintenanceStatus,
@@ -14,15 +13,15 @@ import {
 import { MONTHS } from '../constants';
 import { rawEquipmentData, rawInventoryData, rawScheduleRules } from './initialData';
 
+// --- SANEAMENTO E MAPEAMENTO INICIAL ---
 const processedEquipmentData: Equipment[] = rawEquipmentData.map(item => {
     let model = 'OUTROS';
     const match = item.identificacao.match(/^([A-Z\s]+)/);
     if (match) model = match[1].trim().replace(/-$/, '');
     
-    // SANEAMENTO DE DADOS (IATF)
     let individualChecklist: TaskDetail[] | undefined = undefined;
     
-    // Correção: AEX-02 não tem limpeza técnica, é operacional. Adicionado itens de engenharia.
+    // Ajuste AEX-02: Foco em Resistências e Estrutura (Saneamento IATF)
     if (item.identificacao === 'AEX-02') {
         individualChecklist = [
             { action: "VERIFICAR RESISTENCIAS EM ZONAS DE AQUECIMENTO" },
@@ -30,7 +29,8 @@ const processedEquipmentData: Equipment[] = rawEquipmentData.map(item => {
             { action: "VERIFICAÇÃO DE VAZAMENTOS" }
         ];
     }
-    // Correção: Proteção Visual para PH-01 e outros agora é Metálica
+
+    // Ajuste Proteções: PH-01, 0007 e 0009 agora usam proteção metálica
     if (['PH-01', '0007', '0009'].includes(item.identificacao)) {
         individualChecklist = [
             { action: "VERIFICAR PROTEÇÃO VISUAL METÁLICA" },
@@ -49,7 +49,8 @@ const processedEquipmentData: Equipment[] = rawEquipmentData.map(item => {
         isKeyEquipment: (item as any).isKey || false,
         model: model, 
         individualChecklist,
-        schedule: []
+        // CORREÇÃO CRÍTICA: Inicializa como array vazio para evitar erro "not iterable"
+        schedule: [] 
     };
 });
 
@@ -81,9 +82,13 @@ const generateSchedulesAndPlans = () => {
         plans.push({ id: `PLANO-${rule.typeId}`, description: rule.description, equipmentTypeId: rule.typeId, frequency: rule.frequency, tasks: rule.checklist });
     }
 
+    // Função auxiliar para injetar as OS do relatório de Janeiro/2026
     const registerExecution = (eqId: string, os: string, start: string, end: string, obs: string, hh: number) => {
         const eq = equipmentWithSchedules.find(e => e.id === eqId);
         if (eq) {
+            // Proteção extra: garante que o schedule exista antes do push
+            if (!Array.isArray(eq.schedule)) eq.schedule = [];
+            
             eq.schedule.push({
                 id: crypto.randomUUID(),
                 year: 2026,
@@ -101,7 +106,7 @@ const generateSchedulesAndPlans = () => {
         }
     };
 
-    // --- BAIXA DAS 21 OS CONFORME RELATÓRIO ---
+    // --- INJEÇÃO DAS 21 ORDENS DE SERVIÇO ---
     registerExecution('PH-15', '0179', '09T11:10', '09T11:45', 'Executado. Verificado por Marcus Amato.', 0.6);
     registerExecution('TA-01', '0183', '09T10:10', '09T11:00', 'Tudo OK.', 0.8);
     registerExecution('TA-02', '0187', '09T08:30', '09T09:10', 'Tudo OK.', 0.7);
