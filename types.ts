@@ -1,4 +1,3 @@
-
 export enum MaintenanceStatus {
     Scheduled = 'Programado',
     Executed = 'Executado',
@@ -43,7 +42,6 @@ export interface PurchaseRequest {
     arrivalDate?: string;
     status: 'Pendente' | 'Comprado' | 'Entregue';
     cost?: number;
-    // Add optional fields used in modals to ensure compatibility
     requisitionTime?: string;
     managerAware?: boolean;
 }
@@ -86,6 +84,7 @@ export interface MaintenanceTask {
   isPrepared?: boolean;
   waitingForParts?: boolean;
   planId?: string;
+  observations?: string; // NOVO: Suporte para o relatório de campo e alertas críticos
 }
 
 export interface Equipment {
@@ -180,7 +179,6 @@ export interface FlatTask {
     key: string;
 }
 
-// Added SelectedTask to fix import errors in modals
 export interface SelectedTask extends FlatTask {}
 
 export interface ReliabilityMetrics {
@@ -191,7 +189,6 @@ export interface ReliabilityMetrics {
   totalCorrectiveHours: number;
 }
 
-// Added PrintJob to fix import errors in PrintAuditPage
 export interface PrintJob {
     id: string;
     jobName: string;
