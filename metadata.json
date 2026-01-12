@@ -1,0 +1,7 @@
+{
+  "name": "Sistema de Manutenção 2.0",
+  "description": "Sistema de controle de manutenção com OS, Planejamento e Cronograma.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

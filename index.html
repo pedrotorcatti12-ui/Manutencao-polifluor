@@ -1,0 +1,74 @@
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Manutenção | Polifluor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <style>
+      @import url('https://rsms.me/inter/inter.css');
+      html { font-family: 'Inter', sans-serif; }
+      @supports (font-variation-settings: normal) {
+        html { font-family: 'Inter var', sans-serif; }
+      }
+      
+      .animate-fade-in {
+        animation: fadeIn 0.3s ease-out forwards;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .form-input {
+        appearance: none;
+        background-color: #F9FAFB;
+        border-color: #D1D5DB;
+        color: #111827;
+        border-width: 1px;
+        border-radius: 0.375rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        width: 100%;
+      }
+      
+      .dark .form-input {
+        background-color: #374151;
+        border-color: #4B5563;
+        color: #F9FAFB;
+      }
+
+      @media print {
+        body * { visibility: hidden; }
+        #printable-portal, #printable-portal * { visibility: visible; }
+        #printable-portal { position: absolute; left: 0; top: 0; width: 100%; }
+      }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.90.1",
+    "react-dom": "https://esm.sh/react-dom@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+    <!-- O Vite gerencia este caminho automaticamente no build -->
+    <script type="module" src="/index.tsx"></script>
+    <div id="printable-portal"></div>
+</body>
+</html>
