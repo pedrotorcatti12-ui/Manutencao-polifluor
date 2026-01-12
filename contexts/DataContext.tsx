@@ -80,13 +80,149 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [isSyncing, setIsSyncing] = useState(false);
     const [isOnline, setIsOnline] = useState(false);
 
-    // 1. Carga Inicial do Supabase com Proteção Total (Blindagem)
     useEffect(() => {
         const fetchCloudData = async () => {
             if (supabase) {
                 try {
                     setIsSyncing(true);
                     const cloudData = await loadFromCloud();
-                    
                     if (cloudData) {
-                        setIsOnline(true
+                        setIsOnline(true);
+                        if (Array.isArray(cloudData.equipment) && cloudData.equipment.length > 0) {
+                            const sanitizedEquip = cloudData.equipment.map((e: any) => ({
+                                ...e,
+                                schedule: Array.isArray(e.schedule) ? e.schedule : []
+                            }));
+                            setEquipmentData(sanitizedEquip);
+                        }
+                        if (Array.isArray(cloudData.inventory) && cloudData.inventory.length > 0) setInventoryData(cloudData.inventory);
+                        if (Array.isArray(cloudData.workOrders) && cloudData.workOrders.length > 0) setWorkOrders(cloudData.workOrders);
+                        if (Array.isArray(cloudData.plans) && cloudData.plans.length > 0) setMaintenancePlans(cloudData.plans);
+                        if (Array.isArray(cloudData.types) && cloudData.types.length > 0) setEquipmentTypes(cloudData.types);
+                        if (cloudData.settings) {
+                            if (Array.isArray(cloudData.settings.maintainers) && cloudData.settings.maintainers.length > 0) setMaintainers(cloudData.settings.maintainers);
+                            if (Array.isArray(cloudData.settings.requesters) && cloudData.settings.requesters.length > 0) setRequesters(cloudData.settings.requesters);
+                            if (Array.isArray(cloudData.settings.standard_tasks) && cloudData.settings.standard_tasks.length > 0) setStandardTasks(cloudData.settings.standard_tasks);
+                            if (Array.isArray(cloudData.settings.standard_materials) && cloudData.settings.standard_materials.length > 0) setStandardMaterials(cloudData.settings.standard_materials);
+                            if (Array.isArray(cloudData.settings.status_config) && cloudData.settings.status_config.length > 0) setStatusConfig(cloudData.settings.status_config);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Erro no sincronismo inicial:", err);
+                } finally {
+                    setIsSyncing(false);
+                }
+            }
+        };
+        fetchCloudData();
+    }, []);
+
+    useEffect(() => {
+        if (!isOnline) return;
+        const timer = setTimeout(() => { setIsSyncing(true); syncEquipmentToCloud(equipmentData).then(() => setIsSyncing(false)); }, 2000);
+        return () => clearTimeout(timer);
+    }, [equipmentData, isOnline]);
+
+    useEffect(() => {
+        if (!isOnline) return;
+        const timer = setTimeout(() => { setIsSyncing(true); syncInventoryToCloud(inventoryData).then(() => setIsSyncing(false)); }, 2000);
+        return () => clearTimeout(timer);
+    }, [inventoryData, isOnline]);
+
+    useEffect(() => {
+        if (!isOnline) return;
+        const timer = setTimeout(() => { setIsSyncing(true); syncWorkOrdersToCloud(workOrders).then(() => setIsSyncing(false)); }, 2000);
+        return () => clearTimeout(timer);
+    }, [workOrders, isOnline]);
+
+    useEffect(() => {
+        if (!isOnline) return;
+        const timer = setTimeout(() => { setIsSyncing(true); syncPlansToCloud(maintenancePlans).then(() => setIsSyncing(false)); }, 2000);
+        return () => clearTimeout(timer);
+    }, [maintenancePlans, isOnline]);
+
+    useEffect(() => {
+        if (!isOnline) return;
+        const timer = setTimeout(() => { setIsSyncing(true); syncEquipmentTypesToCloud(equipmentTypes).then(() => setIsSyncing(false)); }, 2000);
+        return () => clearTimeout(timer);
+    }, [equipmentTypes, isOnline]);
+
+    useEffect(() => {
+        if (!isOnline) return;
+        const timer = setTimeout(() => {
+            setIsSyncing(true);
+            syncSettingsToCloud({ maintainers, requesters, standard_tasks: standardTasks, standard_materials: standardMaterials, status_config: statusConfig })
+                .then(() => setIsSyncing(false));
+        }, 2000);
+        return () => clearTimeout(timer);
+    }, [maintainers, requesters, standardTasks, standardMaterials, statusConfig, isOnline]);
+
+    const removeEquipment = async (id: string) => {
+        setEquipmentData(prev => prev.filter(e => e.id !== id));
+        if (isOnline) await deleteEquipmentFromCloud(id);
+    };
+
+    const removeInventory = async (id: string) => {
+        setInventoryData(prev => prev.filter(i => i.id !== id));
+        if (isOnline) await deleteInventoryFromCloud(id);
+    };
+
+    const removeWorkOrder = async (id: string) => {
+        setWorkOrders(prev => prev.filter(w => w.id !== id));
+        if (isOnline) await deleteWorkOrderFromCloud(id);
+    };
+
+    const removePlan = async (id: string) => {
+        setMaintenancePlans(prev => prev.filter(p => p.id !== id));
+        if (isOnline) await deletePlanFromCloud(id);
+    };
+
+    const removeEquipmentType = async (id: string) => {
+        setEquipmentTypes(prev => prev.filter(t => t.id !== id));
+        if (isOnline) await deleteEquipmentTypeFromCloud(id);
+    };
+
+    const forceSync = async () => {
+        setIsSyncing(true);
+        try {
+            await Promise.all([
+                syncEquipmentToCloud(equipmentData),
+                syncInventoryToCloud(inventoryData),
+                syncWorkOrdersToCloud(workOrders),
+                syncPlansToCloud(maintenancePlans),
+                syncEquipmentTypesToCloud(equipmentTypes),
+                syncSettingsToCloud({ maintainers, requesters, standard_tasks: standardTasks, standard_materials: standardMaterials, status_config: statusConfig })
+            ]);
+            setIsOnline(true);
+            alert("Sincronização forçada concluída!");
+        } catch (error) {
+            console.error(error);
+            setIsOnline(false);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    const value = {
+        equipmentData, setEquipmentData,
+        inventoryData, setInventoryData,
+        statusConfig, setStatusConfig,
+        maintenancePlans, setMaintenancePlans,
+        equipmentTypes, setEquipmentTypes,
+        maintainers, setMaintainers,
+        requesters, setRequesters,
+        standardTasks, setStandardTasks,
+        standardMaterials, setStandardMaterials,
+        workOrders, setWorkOrders,
+        isSyncing, forceSync, isOnline,
+        removeEquipment, removeInventory, removeWorkOrder, removePlan, removeEquipmentType
+    };
+
+    return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+};
+
+export const useDataContext = (): DataContextType => {
+    const context = useContext(DataContext);
+    if (context === undefined) throw new Error('useDataContext must be used within a DataProvider');
+    return context;
+};
