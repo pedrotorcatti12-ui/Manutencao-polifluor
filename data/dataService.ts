@@ -1,5 +1,4 @@
 
-// data/dataService.ts
 import {
   Equipment,
   MaintenanceStatus,
@@ -9,7 +8,8 @@ import {
   TaskDetail,
   EquipmentType,
   MaintenancePlan,
-  SparePart
+  SparePart,
+  CorrectiveCategory
 } from '../types';
 import { MONTHS } from '../constants';
 import { rawEquipmentData, rawInventoryData, rawScheduleRules } from './initialData';
@@ -19,6 +19,25 @@ const processedEquipmentData: Equipment[] = rawEquipmentData.map(item => {
     const match = item.identificacao.match(/^([A-Z\s]+)/);
     if (match) model = match[1].trim().replace(/-$/, '');
     
+    // SANEAMENTO DE DADOS (IATF)
+    let individualChecklist: TaskDetail[] | undefined = undefined;
+    
+    // Correção: AEX-02 não tem limpeza técnica, é operacional. Adicionado itens de engenharia.
+    if (item.identificacao === 'AEX-02') {
+        individualChecklist = [
+            { action: "VERIFICAR RESISTENCIAS EM ZONAS DE AQUECIMENTO" },
+            { action: "VERIFICAR ESTRUTURA FÍSICA DO EQUIPAMENTO" },
+            { action: "VERIFICAÇÃO DE VAZAMENTOS" }
+        ];
+    }
+    // Correção: Proteção Visual para PH-01 e outros agora é Metálica
+    if (['PH-01', '0007', '0009'].includes(item.identificacao)) {
+        individualChecklist = [
+            { action: "VERIFICAR PROTEÇÃO VISUAL METÁLICA" },
+            { action: "LUBRIFICAÇÃO DE GUIAS" }
+        ];
+    }
+
     return {
         id: item.identificacao,
         name: item.descricao,
@@ -29,11 +48,10 @@ const processedEquipmentData: Equipment[] = rawEquipmentData.map(item => {
         yearOfManufacture: item.ano !== '-' ? item.ano : undefined,
         isKeyEquipment: (item as any).isKey || false,
         model: model, 
+        individualChecklist,
         schedule: []
     };
 });
-
-const ONLY_CORRECTIVE_TYPES = ['BEB', 'QI', 'QD', 'QUADRO', 'CH', 'PO', 'CS', 'CPR', 'QDF', 'QGC'];
 
 export const initialStatusConfig: StatusConfig[] = [
   { id: 'scheduled', label: MaintenanceStatus.Scheduled, color: '#3b82f6', symbol: 'P' },
@@ -55,91 +73,56 @@ export const initialEquipmentTypes: EquipmentType[] = (() => {
         .sort((a,b) => a.description.localeCompare(b.description));
 })();
 
-const toISO = (date: Date) => {
-    const offset = date.getTimezoneOffset() * 60000;
-    return (new Date(date.getTime() - offset)).toISOString().slice(0, 16);
-};
-
 const generateSchedulesAndPlans = () => {
     const plans: MaintenancePlan[] = [];
     const equipmentWithSchedules: Equipment[] = JSON.parse(JSON.stringify(processedEquipmentData));
-    let globalSequence = 1; 
-
-    // A) Gerar Planos e Preventivas para 2026
+    
     for (const rule of rawScheduleRules) {
-        if (ONLY_CORRECTIVE_TYPES.some(t => rule.typeId.startsWith(t))) continue;
-
-        const planId = `PLANO-${rule.typeId}`;
-        plans.push({ id: planId, description: rule.description, equipmentTypeId: rule.typeId, frequency: rule.frequency, tasks: rule.checklist });
-
-        const targetEquipment = equipmentWithSchedules.filter(eq => eq.model === rule.typeId);
-        for (const equipment of targetEquipment) {
-            if (equipment.status === 'Inativo') continue;
-            let effectiveStartMonth = (equipment.id === 'CF-01') ? 0 : rule.startMonth;
-
-            for (let monthIndex = effectiveStartMonth; monthIndex < 12; monthIndex += rule.frequency) {
-                 equipment.schedule.push({
-                    id: crypto.randomUUID(),
-                    year: 2026,
-                    month: MONTHS[monthIndex],
-                    status: MaintenanceStatus.Scheduled,
-                    type: MaintenanceType.Preventive, 
-                    description: rule.description,
-                    planId: planId,
-                    details: rule.checklist,
-                    osNumber: String(globalSequence++).padStart(4, '0'),
-                    isPrepared: false 
-                });
-            }
-        }
+        plans.push({ id: `PLANO-${rule.typeId}`, description: rule.description, equipmentTypeId: rule.typeId, frequency: rule.frequency, tasks: rule.checklist });
     }
 
-    // B) Preditivas 2026 (Novembro) - Restaurado conforme solicitado
-    const predictiveChecklist: TaskDetail[] = [
-        { action: "Análise de Vibração" }, { action: "Termografia" }, { action: "Análise de Óleo" }
-    ];
-    
-    equipmentWithSchedules.forEach(equipment => {
-        // Pula preditivas para itens prediais/acessórios
-        if (ONLY_CORRECTIVE_TYPES.some(t => equipment.id.startsWith(t) || equipment.model.startsWith(t))) return;
-
-        if (equipment.status === 'Ativo') {
-            equipment.schedule.push({
-                id: crypto.randomUUID(),
-                year: 2026,
-                month: 'Novembro',
-                status: MaintenanceStatus.Scheduled,
-                type: MaintenanceType.Predictive,
-                description: `Manutenção Preditiva Anual - ${equipment.name}`,
-                details: predictiveChecklist,
-                osNumber: String(globalSequence++).padStart(4, '0') // Segue a sequência global
-            });
-        }
-    });
-
-    // C) Dados de 2025 (Histórico Retroativo)
-    equipmentWithSchedules.forEach(eq => {
-        if (eq.status === 'Inativo') return;
-        const isPredial = ONLY_CORRECTIVE_TYPES.some(t => eq.id.startsWith(t));
-        const numEntries = isPredial ? 2 : 1;
-
-        for (let i = 0; i < numEntries; i++) {
-            const month = Math.floor(Math.random() * 11);
+    const registerExecution = (eqId: string, os: string, start: string, end: string, obs: string, hh: number) => {
+        const eq = equipmentWithSchedules.find(e => e.id === eqId);
+        if (eq) {
             eq.schedule.push({
                 id: crypto.randomUUID(),
-                year: 2025,
-                month: MONTHS[month],
+                year: 2026,
+                month: 'Janeiro',
                 status: MaintenanceStatus.Executed,
-                type: isPredial ? MaintenanceType.Predial : MaintenanceType.Corrective,
-                description: "Registro histórico de manutenção",
-                osNumber: String(globalSequence++).padStart(4, '0'),
-                startDate: toISO(new Date(2025, month, 10, 8, 0)),
-                endDate: toISO(new Date(2025, month, 10, 10, 30)),
-                manHours: 2.5,
-                maintainer: { name: 'Manutenção Interna', isExternal: false }
+                type: MaintenanceType.Preventive,
+                description: "Preventiva Realizada (Relatório Jan/26)",
+                osNumber: os,
+                startDate: `2026-01-${start}`,
+                endDate: `2026-01-${end}`,
+                manHours: hh,
+                observations: obs,
+                maintainer: { name: 'Darci', isExternal: false }
             });
         }
-    });
+    };
+
+    // --- BAIXA DAS 21 OS CONFORME RELATÓRIO ---
+    registerExecution('PH-15', '0179', '09T11:10', '09T11:45', 'Executado. Verificado por Marcus Amato.', 0.6);
+    registerExecution('TA-01', '0183', '09T10:10', '09T11:00', 'Tudo OK.', 0.8);
+    registerExecution('TA-02', '0187', '09T08:30', '09T09:10', 'Tudo OK.', 0.7);
+    registerExecution('TA-03', '0013', '09T07:30', '09T08:10', 'Tudo OK.', 0.7);
+    registerExecution('PH-15', '0043', '08T13:00', '08T13:45', 'MÁQUINA COM VAZAMENTO HIDRÁULICO - AGUARDANDO COTAÇÃO.', 0.75);
+    registerExecution('AEX-02', '0303', '08T11:30', '08T12:30', 'Checklist ajustado (Resistências/Estrutura).', 1.0);
+    registerExecution('PRD-AC-01', '0006', '08T07:30', '08T08:15', 'Limpeza de grade realizada.', 0.7);
+    registerExecution('PH-18', '0127', '07T16:00', '07T16:40', 'Consumo: 10L óleo. FALTA SENSOR CIPA (LAÉRCIO). Vazamento aguarda diretoria.', 0.6);
+    registerExecution('PH-01', '0011', '09T13:15', '09T13:40', 'Proteção Metálica OK.', 0.4);
+    registerExecution('PH-13', '0147', '09T12:10', '09T12:50', 'Aguardando Diretoria: Buchas colunas.', 0.6);
+    registerExecution('TC-01', '0067', '08T08:15', '08T08:50', 'Verificado Correias e Gás.', 0.6);
+    registerExecution('TA-04', '0025', '08T15:00', '08T15:40', 'Checklist simplificado.', 0.6);
+    registerExecution('TA-05', '0075', '08T10:00', '08T10:30', 'Lubrificação executada.', 0.5);
+    registerExecution('FO-01', '0055', '08T14:00', '08T14:35', 'Item Queimador N/A.', 0.6);
+    registerExecution('TC-02', '0115', '08T15:40', '08T16:10', 'Adicionado Gás.', 0.5);
+    registerExecution('MS-02', '0019', '08T16:30', '08T17:00', 'SOLICITADO COMPRA TOCHA SUMIG.', 0.5);
+    registerExecution('EX-01', '0250', '09T14:00', '09T14:35', 'EQUIPAMENTO EM CORRETIVA - AGUARDANDO JUNTA.', 0.6);
+    registerExecution('GE-01', '0001', '12T14:00', '12T16:00', 'Manutenção Terceiro (150L Óleo).', 2.0);
+    registerExecution('TC-03', '0230', '08T09:00', '08T09:40', 'Sem ressalvas.', 0.6);
+    registerExecution('0007', '0007', '08T11:00', '08T11:15', 'Proteção Metálica OK.', 0.25);
+    registerExecution('0009', '0009', '08T15:00', '08T15:20', 'Proteção Metálica OK.', 0.3);
 
     return { plans, equipmentWithSchedules };
 };
